@@ -57,7 +57,7 @@ The script needs access to [crt.sh](https://crt.sh).
 The script can be run, for example, via cron:
 
 ```
-*/30 * * * *	/usr/local/bin/crt-watch.sh -c /etc/crt-watch/sample.cfg
+30 * * * *	/usr/local/bin/crt-watch.sh -c /etc/crt-watch/sample.cfg
 ```
 where you can control the frequency of how often you want to monitor the specified domain. Please do not abuse [crt.sh](https://crt.sh) by running the script too frequently.
 
