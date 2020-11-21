@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=0.1
+VERSION=0.1.1
 SCRIPT_NAME="Certificate Transparency Logs Monitor v${VERSION}"
 
 ##############################################################################
@@ -198,7 +198,7 @@ curl -h 1>/dev/null 2>/dev/null
 ##
 
 jq -h 1>/dev/null 2>/dev/null
-[[ $? -ne 0 ]] && fatal_error "[main] 'jq' is not installed!"
+[[ $? -gt 1 ]] && fatal_error "[main] 'jq' is not installed!"
 
 
 ## Collect OPTIONS and PARAMETERS
