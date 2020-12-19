@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=0.1.2
+VERSION=0.1.3
 SCRIPT_NAME="Certificate Transparency Logs Monitor v${VERSION}"
 
 ##############################################################################
@@ -140,40 +140,37 @@ send_report_email() {
 
     echo '<p></p>'
     
-    if [[ $SEND_NEW == 'yes' ]]; then
+    echo "<p>The following certificates have been issued since the last CRT report:</p>"
 
-      echo "<p>The following certificates have been issued since the last CRT report:</p>"
+    while read SERIAL_NUMBER; do
+      CRTSH_ID="$(    jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .id'          <<< "$JSON_DATA" | head -n1 )"
+      ISSUER_NAME="$( jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .issuer_name' <<< "$JSON_DATA" | sort -u )"
+      COMMON_NAME="$( jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .common_name' <<< "$JSON_DATA" | sort -u )"
+      NAME_VALUE="$(  jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .name_value'  <<< "$JSON_DATA" | sort -u | tr '\n' ',' | sed -e 's/,/, /g' -e 's/, $//g' )"
+      NOT_BEFORE="$(  jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .not_before'  <<< "$JSON_DATA" | sort -u )"
+      NOT_AFTER="$(   jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .not_after'   <<< "$JSON_DATA" | sort -u )"
+      # echo '<p>'
+      echo '<dl>'
+      echo '<dt>crt.sh ID</dt>'
+      echo "<dd><a href='https://crt.sh/?id=${CRTSH_ID}&opt=x509lint,cablint,zlint,nometadata'>${CRTSH_ID}</a></dd>"
+      echo '<dt>Serial Number</dt>'
+      echo "<dd>${SERIAL_NUMBER}</dd>"
+      echo '<dt>Not Before</dt>'
+      echo "<dd>${NOT_BEFORE}</dd>"
+      echo '<dt>Not After</dt>'
+      echo "<dd>${NOT_AFTER}</dd>"
+      echo '<dt>Common Name</dt>'
+      echo "<dd>${COMMON_NAME}</dd>"
+      echo '<dt>Matching Identities</dt>'
+      echo "<dd>${NAME_VALUE}</dd>"
+      echo '<dt>Issuer Name</dt>'
+      echo "<dd>${ISSUER_NAME}</dd>"
+      echo '</dl>'
+    done <<< "$CRTLOG_NEW"
 
-      while read SERIAL_NUMBER; do
-        CRTSH_ID="$(    jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .id'          <<< "$JSON_DATA" | head -n1 )"
-        ISSUER_NAME="$( jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .issuer_name' <<< "$JSON_DATA" | sort -u )"
-        COMMON_NAME="$( jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .common_name' <<< "$JSON_DATA" | sort -u )"
-        NAME_VALUE="$(  jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .name_value'  <<< "$JSON_DATA" | sort -u | tr '\n' ',' | sed -e 's/,/, /g' -e 's/, $//g' )"
-        NOT_BEFORE="$(  jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .not_before'  <<< "$JSON_DATA" | sort -u )"
-        NOT_AFTER="$(   jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .not_after'   <<< "$JSON_DATA" | sort -u )"
-        # echo '<p>'
-        echo '<dl>'
-        echo '<dt>crt.sh ID</dt>'
-        echo "<dd><a href='https://crt.sh/?id=${CRTSH_ID}&opt=x509lint,cablint,zlint,nometadata'>${CRTSH_ID}</a></dd>"
-        echo '<dt>Serial Number</dt>'
-        echo "<dd>${SERIAL_NUMBER}</dd>"
-        echo '<dt>Not Before</dt>'
-        echo "<dd>${NOT_BEFORE}</dd>"
-        echo '<dt>Not After</dt>'
-        echo "<dd>${NOT_AFTER}</dd>"
-        echo '<dt>Common Name</dt>'
-        echo "<dd>${COMMON_NAME}</dd>"
-        echo '<dt>Matching Identities</dt>'
-        echo "<dd>${NAME_VALUE}</dd>"
-        echo '<dt>Issuer Name</dt>'
-        echo "<dd>${ISSUER_NAME}</dd>"
-        echo '</dl>'
-      done <<< "$CRTLOG_NEW"
-
-      echo '<p></p>'
-      echo '</body>'
-      echo '</html>'
-    fi
+    echo '<p></p>'
+    echo '</body>'
+    echo '</html>'
 
   ) | /usr/sbin/sendmail -t -i
 
@@ -313,8 +310,6 @@ if [[ -f "$CRT_OLD" ]]; then
   ##
 
   CHANGELOG="${LOG_DIR}/${DOMAIN_ENC}.log"
-
-  SEND_REPORT='no'
   SEND_NEW='no'
 
   if [[ $( wc -w <<< "$CRTLOG_NEW" ) -gt 0 ]]; then
@@ -327,14 +322,13 @@ if [[ -f "$CRT_OLD" ]]; then
       NOT_AFTER="$(   jq -r --arg SERIAL_NUMBER "$SERIAL_NUMBER" '.[] | select(.serial_number == $SERIAL_NUMBER) | .not_after'   <<< "$JSON_DATA" | sort -u )"
       echo "${TIMESTAMP} domain=\"${DOMAIN}\" crtsh_id=\"${CRTSH_ID}\" serial_number=\"${SERIAL_NUMBER}\" not_before=\"${NOT_BEFORE}\" not_after=\"${NOT_AFTER}\" common_name=\"${COMMON_NAME}\" name_value=\"${NAME_VALUE}\" issuer_name=\"${ISSUER_NAME}\"" >> "$CHANGELOG"
     done <<< "$CRTLOG_NEW"
-    [[ $REPORT_NEW == 'yes' ]] && SEND_REPORT='yes' && SEND_NEW='yes'
-
+    [[ $REPORT_NEW == 'yes' ]] && SEND_NEW='yes'
     mv "$CRT_NEW" "$CRT_OLD"
   else
     rm -f "$CRT_NEW"
   fi
 
-  if [[ $SEND_REPORT == 'yes' ]]; then
+  if [[ $SEND_NEW == 'yes' ]]; then
     [[ -z "$EMAIL_FROM"    ]] && EMAIL_FROM='root'
     [[ -z "$EMAIL_TO"      ]] && [[ -z "$EMAIL_CC" ]] && [[ -z "$EMAIL_BCC" ]] && EMAIL_TO='root'
     [[ -z "$EMAIL_SUBJECT" ]] && EMAIL_SUBJECT="CRT report for $( tr '[:lower:]' '[:upper:]' <<< ${DOMAIN} )"
