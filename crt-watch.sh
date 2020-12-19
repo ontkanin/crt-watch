@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=0.1.1
+VERSION=0.1.2
 SCRIPT_NAME="Certificate Transparency Logs Monitor v${VERSION}"
 
 ##############################################################################
@@ -284,12 +284,13 @@ RET=$?
 
 HTTP_CODE=$(  tail -n1 <<< "$OUT" )
 JSON_DATA="$( head -n1 <<< "$OUT" )"
+CRT_BUFFER=""
 
 if [[ $RET -eq 0 ]]; then
   SERIAL_NUMBERS="$( jq -r .[].serial_number <<< "$JSON_DATA" )"
   RET=$?
   if [[ $RET -eq 0 ]]; then
-    egrep '^[A-Fa-f0-9]' <<< "$SERIAL_NUMBERS" | sort -u > "$CRT_NEW"
+    CRT_BUFFER="$( egrep '^[A-Fa-f0-9]' <<< "$SERIAL_NUMBERS" | sort -u )"
   else
     fatal_error "[main] error when processing JSON data!"
   fi
@@ -301,6 +302,9 @@ fi
 ##
 
 if [[ -f "$CRT_OLD" ]]; then
+
+  ## Write down collected serial numbers
+  echo "$CRT_BUFFER" > "$CRT_NEW"
 
   ## Compare old and new serial numbers
   CRTLOG_NEW="$( diff --changed-group-format='%<' --unchanged-group-format='' "$CRT_NEW" "$CRT_OLD" | sort )"
@@ -324,6 +328,10 @@ if [[ -f "$CRT_OLD" ]]; then
       echo "${TIMESTAMP} domain=\"${DOMAIN}\" crtsh_id=\"${CRTSH_ID}\" serial_number=\"${SERIAL_NUMBER}\" not_before=\"${NOT_BEFORE}\" not_after=\"${NOT_AFTER}\" common_name=\"${COMMON_NAME}\" name_value=\"${NAME_VALUE}\" issuer_name=\"${ISSUER_NAME}\"" >> "$CHANGELOG"
     done <<< "$CRTLOG_NEW"
     [[ $REPORT_NEW == 'yes' ]] && SEND_REPORT='yes' && SEND_NEW='yes'
+
+    mv "$CRT_NEW" "$CRT_OLD"
+  else
+    rm -f "$CRT_NEW"
   fi
 
   if [[ $SEND_REPORT == 'yes' ]]; then
@@ -333,9 +341,4 @@ if [[ -f "$CRT_OLD" ]]; then
     send_report_email
   fi
 fi
-
-## Cleanup
-##
-
-mv "$CRT_NEW" "$CRT_OLD"
 
