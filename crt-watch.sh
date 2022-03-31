@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-VERSION=0.1.4
+VERSION=0.1.5
 SCRIPT_NAME="Certificate Transparency Logs Monitor v${VERSION}"
 
 ##############################################################################
@@ -291,6 +291,7 @@ if [[ $RET -eq 0 ]]; then
   else
     fatal_error "[main] error when processing JSON data!"
   fi
+  [[ -z "$SERIAL_NUMBERS" ]] && fatal_error "[main] missing data!"
 else
   fatal_error "[main] curl(${RET})/http(${HTTP_CODE}) when contacting '${CRTSH_URL}'!"
 fi
