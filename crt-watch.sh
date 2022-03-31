@@ -291,10 +291,12 @@ if [[ $RET -eq 0 ]]; then
   else
     fatal_error "[main] error when processing JSON data!"
   fi
-  [[ -z "$SERIAL_NUMBERS" ]] && fatal_error "[main] missing data!"
 else
   fatal_error "[main] curl(${RET})/http(${HTTP_CODE}) when contacting '${CRTSH_URL}'!"
 fi
+
+## Fail if there's no data to process
+[[ -z "$CRT_BUFFER" ]] && fatal_error "[main] missing data!"
 
 ## There's no CRT_OLD in the first run, so there'll be nothing to report
 ##
